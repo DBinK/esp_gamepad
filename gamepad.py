@@ -39,8 +39,11 @@ def limit_value(value, min_value=-3000, max_value=3000):
 def map_value(self, value, original_block, target_block):
     """将给定的值映射到给定的目标范围。"""
     original_min, original_max = original_block
-    target_min, target_max     = target_block
-    mapped_value = target_max + (value - original_min) * (target_min - target_max) / (original_max - original_min)
+    target_min, target_max = target_block
+    
+    # 计算映射值
+    mapped_value = target_min + (value - original_min) * (target_max - target_min) / (original_max - original_min)
+    
     return mapped_value
 
 

@@ -87,19 +87,15 @@ class Gamepad:
         self.debug = debug
         self.init_inputs()
         # id, lx, ly, rx, ry, abxy & dpad, ls & rs & start & back, mode
-        self.data = [1, 0,0,0,0, 0,0, 6] 
+        self.data = [1, 0,0,0,0, 8,0, 6] 
 
     def set_bit(self, num, bit_position, value):
         """
-        设置指定位置的位为1或0
-        @param num: 要修改的原始数字
-        @param bit_position: 要设置的位的位置（从0开始计数）
-        @param value: 要设置的值（0或1）
-        @return: 修改后的数字
+        设置num在二进制表示中指定位置的位为1或0
         """
-        if value == 0: 
+        if value == 0:    # 按下
             return num | (1 << bit_position)  
-        elif value == 1: 
+        elif value == 1:  # 释放
             return num & ~(1 << bit_position) 
         
     def init_inputs(self):
@@ -135,87 +131,83 @@ class Gamepad:
         }
 
     # dpad 方向键
-    # @debounce(100_000)
-    def update_direction(self, state):
+    def update_direction(self):
         # 获取当前按键状态
         up = self.up.read()
         down = self.down.read()
         left = self.left.read()
         right = self.right.read()
 
-        # 根据按键状态更新 data[5]
+        # 根据按键状态更新 
         key_state = (up, right, down, left)
+        print(key_state, self.DIRECTION_MAP[key_state])
 
-        print(key_state, state)
-
-        if state == 1:    # 抬起
-            self.data[5] = self.data[5] & ~(self.DIRECTION_MAP[key_state])
-        elif state == 0:  # 按下
-            self.data[5] = self.data[5] | self.DIRECTION_MAP[key_state]
+        self.data[5] = self.data[5] & 0b11110000  # 清除方向键
+        self.data[5] = self.data[5] | self.DIRECTION_MAP[key_state]  # 设置方向键
 
 
     # 方向键回调函数
-    @debounce(50_000_000)
+    @debounce(1_000_000)
     def up_callback(self, KEY):
-        self.update_direction(KEY.value()) 
+        self.update_direction() 
 
-    @debounce(50_000_000)
+    @debounce(1_000_000)
     def down_callback(self, KEY):
-        self.update_direction(KEY.value())
+        self.update_direction()
 
-    @debounce(50_000_000)
+    @debounce(1_000_000)
     def left_callback(self, KEY):
-        self.update_direction(KEY.value())
+        self.update_direction()
 
-    @debounce(50_000_000)
+    @debounce(1_000_000)
     def right_callback(self, KEY):
-        self.update_direction(KEY.value())
+        self.update_direction()
 
     # XABY 按键回调函数
-    @debounce(50_000_000)
+    @debounce(5_000_000)
     def a_callback(self, KEY):
         self.data[5] = self.set_bit(self.data[5], 6, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
-    @debounce(50_000_000)
+    @debounce(5_000_000)
     def b_callback(self, KEY):
         self.data[5] = self.set_bit(self.data[5], 5, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
-    @debounce(50_000_000)
+    @debounce(5_000_000)
     def x_callback(self, KEY):
         self.data[5] = self.set_bit(self.data[5], 7, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
-    @debounce(50_000_000)
+    @debounce(5_000_000)
     def y_callback(self, KEY):
         self.data[5] = self.set_bit(self.data[5], 4, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
     # L R & Start & Back 回调函数
-    @debounce(50_000_000)
+    @debounce(5_000_000)
     def l1_callback(self, KEY):
         self.data[6] = self.set_bit(self.data[6], 7, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
-    @debounce(50_000_000)
+    @debounce(5_000_000)
     def r1_callback(self, KEY):
         self.data[6] = self.set_bit(self.data[6], 6, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
-    @debounce(50_000_000)
+    @debounce(5_000_000)
     def start_callback(self, KEY):
         self.data[6] = self.set_bit(self.data[6], 5, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
-    @debounce(50_000_000)
+    @debounce(5_000_000)
     def select_callback(self, KEY):
         self.data[6] = self.set_bit(self.data[6], 4, KEY.value())
         if self.debug:
@@ -225,12 +217,6 @@ class Gamepad:
     def read(self) -> list:
         self.data[1], self.data[2] = self.ls.read()
         self.data[3], self.data[4] = self.rs.read()
-
-        # abxy_release = self.a.read() and self.b.read() and self.x.read() and self.y.read()
-        # dpad_release = self.up.read() and self.down.read() and self.left.read() and self.right.read()
-
-        # if abxy_release and dpad_release:
-        #     self.data[5] = self.data[5] | 8
 
         return self.data
 
@@ -246,6 +232,6 @@ if __name__ == "__main__":
     gamepad = Gamepad()
     while True: 
         data = gamepad.read()
-        print(f"raw: {data}, xaby: {bin(data[5])}, other: {bin(data[6])}, dpad: []" )
+        print(f"raw: {data}, xaby: {bin(data[5] & 0b11110000)}, other: {bin(data[6])}, dpad: {bin(data[5] & 0b00001111)}" )
         time.sleep(0.1)
     

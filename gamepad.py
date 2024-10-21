@@ -87,7 +87,7 @@ class Gamepad:
         self.debug = debug
         self.init_inputs()
         # id, lx, ly, rx, ry, abxy & dpad, ls & rs & start & back, mode
-        self.data = [1, 0,0,0,0, 8,0, 6] 
+        self.data = [1, 0,0,0,0, 0,0, 6] 
 
     def set_bit(self, num, bit_position, value):
         """
@@ -104,7 +104,6 @@ class Gamepad:
         
     def init_inputs(self):
         """初始化输入设备，包括按键和摇杆。"""
-        # 按键
         self.up = Button(10, self.up_callback)
         self.down = Button(11, self.down_callback)
         self.left = Button(12, self.left_callback)
@@ -123,27 +122,56 @@ class Gamepad:
         self.ls = Joystick(4, 5)
         self.rs = Joystick(7, 8)
 
-    # 定义回调函数
+        self.DIRECTION_MAP = {# 定义方向键映射
+            (0, 1, 1, 1): 0,  # 上
+            (0, 0, 1, 1): 1,  # 上&右
+            (1, 0, 1, 1): 2,  # 右
+            (1, 0, 0, 1): 3,  # 右&下
+            (1, 1, 0, 1): 4,  # 下
+            (1, 1, 0, 0): 5,  # 下&左
+            (1, 1, 1, 0): 6,  # 左
+            (0, 1, 1, 0): 7,  # 左&上
+            (1, 1, 1, 1): 8,  # 无
+        }
+
+    # dpad 方向键
+    # @debounce(100_000)
+    def update_direction(self, state):
+        # 获取当前按键状态
+        up = self.up.read()
+        down = self.down.read()
+        left = self.left.read()
+        right = self.right.read()
+
+        # 根据按键状态更新 data[5]
+        key_state = (up, right, down, left)
+
+        print(key_state, state)
+
+        if state == 1:    # 抬起
+            self.data[5] = self.data[5] & ~(self.DIRECTION_MAP[key_state])
+        elif state == 0:  # 按下
+            self.data[5] = self.data[5] | self.DIRECTION_MAP[key_state]
+
+
+    # 方向键回调函数
     @debounce(50_000_000)
     def up_callback(self, KEY):
-        if self.debug:
-            print(f"key {KEY} pressed") 
+        self.update_direction(KEY.value()) 
 
     @debounce(50_000_000)
     def down_callback(self, KEY):
-        if self.debug:
-            print(f"key {KEY} pressed")
+        self.update_direction(KEY.value())
 
     @debounce(50_000_000)
     def left_callback(self, KEY):
-        if self.debug:
-            print(f"key {KEY} pressed")
+        self.update_direction(KEY.value())
 
     @debounce(50_000_000)
     def right_callback(self, KEY):
-        if self.debug:
-            print(f"key {KEY} pressed")
+        self.update_direction(KEY.value())
 
+    # XABY 按键回调函数
     @debounce(50_000_000)
     def a_callback(self, KEY):
         self.data[5] = self.set_bit(self.data[5], 6, KEY.value())
@@ -168,6 +196,7 @@ class Gamepad:
         if self.debug:
             print(f"key {KEY} pressed")
 
+    # L R & Start & Back 回调函数
     @debounce(50_000_000)
     def l1_callback(self, KEY):
         self.data[6] = self.set_bit(self.data[6], 7, KEY.value())
@@ -192,13 +221,16 @@ class Gamepad:
         if self.debug:
             print(f"key {KEY} pressed")
     
+    # 读取数据
     def read(self) -> list:
-        # 更新摇杆数据
         self.data[1], self.data[2] = self.ls.read()
         self.data[3], self.data[4] = self.rs.read()
 
-        if self.a.read() and self.b.read() and self.x.read() and self.y.read():
-            self.data[5] = 8
+        # abxy_release = self.a.read() and self.b.read() and self.x.read() and self.y.read()
+        # dpad_release = self.up.read() and self.down.read() and self.left.read() and self.right.read()
+
+        # if abxy_release and dpad_release:
+        #     self.data[5] = self.data[5] | 8
 
         return self.data
 

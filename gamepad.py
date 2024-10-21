@@ -47,6 +47,7 @@ def map_value(self, value, original_block, target_block):
     return mapped_value
 
 
+
 class Button:
     def __init__(self, pin, callback):
 
@@ -54,7 +55,7 @@ class Button:
         self.callback = callback
 
         self.KEY = Pin(self.pin, Pin.IN, Pin.PULL_UP)
-        self.KEY.irq(self.callback, Pin.IRQ_FALLING)
+        self.KEY.irq(self.callback, Pin.IRQ_FALLING | Pin.IRQ_RISING)
 
     def read(self):
         return self.KEY.value()
@@ -82,7 +83,28 @@ class Joystick:
 
 
 class Gamepad:
-    def __init__(self):
+    def __init__(self, debug=False):
+        self.debug = debug
+        self.init_inputs()
+        # id, lx, ly, rx, ry, abxy & dpad, ls & rs & start & back, mode
+        self.data = [1, 0,0,0,0, 8,0, 6] 
+
+    def set_bit(self, num, bit_position, value):
+        """
+        设置指定位置的位为1或0
+        @param num: 要修改的原始数字
+        @param bit_position: 要设置的位的位置（从0开始计数）
+        @param value: 要设置的值（0或1）
+        @return: 修改后的数字
+        """
+        if value == 0: 
+            return num | (1 << bit_position)  
+        elif value == 1: 
+            return num & ~(1 << bit_position) 
+        
+    def init_inputs(self):
+        """初始化输入设备，包括按键和摇杆。"""
+        # 按键
         self.up = Button(10, self.up_callback)
         self.down = Button(11, self.down_callback)
         self.left = Button(12, self.left_callback)
@@ -101,7 +123,82 @@ class Gamepad:
         self.ls = Joystick(4, 5)
         self.rs = Joystick(7, 8)
 
-    def run(self):
+    # 定义回调函数
+    @debounce(50_000_000)
+    def up_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed") 
+
+    @debounce(50_000_000)
+    def down_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def left_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def right_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def a_callback(self, KEY):
+
+        self.data[6] = self.set_bit(self.data[6], 7, KEY.value())
+
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def b_callback(self, KEY):
+
+        self.data[6] = self.set_bit(self.data[6], 6, KEY.value())
+
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def x_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def y_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def l1_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def r1_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def start_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+
+    @debounce(50_000_000)
+    def select_callback(self, KEY):
+        if self.debug:
+            print(f"key {KEY} pressed")
+    
+    def read(self) -> list:
+
+        self.data[1], self.data[2] = self.ls.read()
+        self.data[3], self.data[4] = self.rs.read()
+
+
+        return self.data
+
+    def test(self):
         print("Gamepad running...")
         while True:
             time.sleep(0.1)
@@ -109,57 +206,11 @@ class Gamepad:
             print(f"ls: {self.ls.read()}, rs: {self.rs.read()}")
             print(f"ls: {self.ls.read_raw()}, rs: {self.rs.read_raw()}")
 
-    @debounce(100_000_000)
-    def up_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def down_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def left_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def right_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def a_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def b_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def x_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def y_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def l1_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def r1_callback(self, KEY):
-        print(f"key {KEY} pressed")
-
-    @debounce(100_000_000)
-    def start_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-    @debounce(100_000_000)
-    def select_callback(self, KEY):
-        print(f"key {KEY} pressed")
-    
-
 
 if __name__ == "__main__":
     gamepad = Gamepad()
-    gamepad.run()
+    while True: 
+        data = gamepad.read()
+        print(data, bin(data[6]))
+        time.sleep(0.1)
     

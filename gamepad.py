@@ -149,7 +149,7 @@ class Gamepad:
         # 根据按键状态更新 
         key_state = (up, right, down, left)
 
-        print(key_state, self.DIRECTION_MAP.get(key_state, 8))  # 默认值为 8
+        # print(key_state, self.DIRECTION_MAP.get(key_state, 8))  # 默认值为 8
 
         self.data[5] = self.data[5] & 0b11110000  # 清除方向键
         self.data[5] = self.data[5] | self.DIRECTION_MAP.get(key_state, 8)  # 设置方向键

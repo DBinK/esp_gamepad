@@ -1,10 +1,8 @@
 from machine import Pin, ADC
 import time
 
-
 def debounce(delay_ns):
     """装饰器: 防止函数在指定时间内被重复调用"""
-
     def decorator(func):
         last_call_time = 0
         result = None
@@ -20,6 +18,30 @@ def debounce(delay_ns):
         return wrapper
 
     return decorator
+
+def time_diff(last_time=[None]):
+    """计算两次调用之间的时间差，单位为微秒。"""
+    current_time = time.ticks_us()  # 获取当前时间（单位：微秒）
+
+    if last_time[0] is None:  # 如果是第一次调用，更新last_time
+        last_time[0] = current_time
+        return 0.000_001  # 防止除零错误
+
+    else:  # 计算时间差
+        diff = time.ticks_diff(current_time, last_time[0])  # 计算时间差
+        last_time[0] = current_time  # 更新上次调用时间
+        return diff  # 返回时间差us
+
+def limit_value(value, min_value=-3000, max_value=3000):
+    """限制输入的值在给定的范围内。"""
+    return min(max(value, min_value), max_value)
+    
+def map_value(self, value, original_block, target_block):
+    """将给定的值映射到给定的目标范围。"""
+    original_min, original_max = original_block
+    target_min, target_max     = target_block
+    mapped_value = target_max + (value - original_min) * (target_min - target_max) / (original_max - original_min)
+    return mapped_value
 
 
 class Button:
@@ -41,12 +63,18 @@ class Joystick:
         self.y_pin = y_pin
         self.x_axis = ADC(Pin(self.x_pin))
         self.y_axis = ADC(Pin(self.y_pin))
-        self.x_axis.atten(ADC.ATTN_11DB)  # 开启衰减器，测量量程增大到3.3V
-        self.y_axis.atten(ADC.ATTN_11DB)
+        # self.x_axis.atten(ADC.ATTN_11DB)  # 按需开启衰减器，测量量程增大到3.3V
+        # self.y_axis.atten(ADC.ATTN_11DB)
 
-    def read(self):
+    def read_raw(self):
         x_value = self.x_axis.read()
         y_value = self.y_axis.read()
+        return x_value, y_value
+    
+    def read(self) -> tuple: # int8
+        x_value, y_value = self.read_raw()
+        x_value = int(map_value(self, x_value, (0, 4095), (0, 255)))
+        y_value = int(map_value(self, y_value, (0, 4095), (0, 255)))
         return x_value, y_value
 
 
@@ -71,9 +99,12 @@ class Gamepad:
         self.rs = Joystick(7, 8)
 
     def run(self):
+        print("Gamepad running...")
         while True:
             time.sleep(0.1)
-            print(self.ls.read())
+            
+            print(f"ls: {self.ls.read()}, rs: {self.rs.read()}")
+            print(f"ls: {self.ls.read_raw()}, rs: {self.rs.read_raw()}")
 
     @debounce(100_000_000)
     def up_callback(self, KEY):

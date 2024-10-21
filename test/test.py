@@ -1,148 +1,106 @@
-'''
-实验名称：手柄控制
-版本：v1.0
-日期：2022.4
-作者：01Studio
-说明：通过获取手柄动作信息在LCD显示
-'''
+#请输入你的答案
+import cv2
+import numpy as np
+import math
 
-import controller,time
-from tftlcd import LCD15
+def process_img(original_img):
+    resized_img = cv2.resize(original_img, (640, 480)) 
+    gray_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2GRAY)  
+    _, binary_img = cv2.threshold(gray_img, 127, 255, cv2.THRESH_BINARY)  
+    cv2.imshow('Resized Image', resized_img) 
+    cv2.imshow('Binary Image', binary_img)  
+    return resized_img, binary_img 
 
-#构建手柄对象
-gamepad = controller.CONTROLLER()
+def adjust(rect):
+    c, (w, h), angle = rect
+    if w > h:
+        w, h = h, w
+        angle = (angle + 90) % 360
+        angle = angle - 360 if angle > 180 else angle - 180 if angle > 90 else angle
+    return c, (w, h), angle
 
-########################
-# 构建1.5寸LCD对象并初始化
-########################
-d = LCD15(portrait=1) #默认方向竖屏
+def find_light(resized_img, binary_img):
+    contours, _ = cv2.findContours(binary_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    rects = []
+    for contour in contours:
+        if len(contour) >= 5:
+            rect = cv2.minAreaRect(contour)
+            area = cv2.contourArea(contour)
+            if area < 50:
+                continue
+            rect = adjust(rect)
+            if -35 < rect[2] < 35:
+                box = cv2.boxPoints(rect)
+                box = np.int64(box)
+                rects.append(rect)
+                cv2.drawContours(resized_img, [box], 0, (0, 255, 0), 2)
+    cv2.imshow('Detected Rotated Rectangles', resized_img)
+    return resized_img, rects
 
-#常用颜色定义
-WHITE = (255,255,255)
-BLACK = (0,0,0)
-RED = (255,0,0)
-BLUE = (0,0,255)
+def is_close(rect1, rect2, light_angle_tol, line_angle_tol, height_tol, width_tol, cy_tol):
+    (cx1, cy1), (w1, h1), angle1 = rect1
+    (cx2, cy2), (w2, h2), angle2 = rect2
+    distance = math.sqrt((cx1 - cx2) ** 2 + (cy1 - cy2) ** 2)
+    if distance > 20:
+        angle_diff = min(abs(angle1 - angle2), 360 - abs(angle1 - angle2))
+        if angle_diff <= light_angle_tol:
+            if abs(h1 - h2) <= height_tol and abs(w1 - w2) <= width_tol:
+                line_angle = math.degrees(math.atan2(cy2 - cy1, cx2 - cx1))
+                if line_angle > 90:
+                    line_angle -= 180
+                elif line_angle < -90:
+                    line_angle += 180
+                if (abs(line_angle - angle1) <= line_angle_tol or abs(line_angle - angle2) <= line_angle_tol or abs(cy1 - cy2) < cy_tol):
+                    return True
+    return False
 
-d.fill(WHITE) #填充白色
+def is_armor(img, lights, light_angle_tol=5, line_angle_tol=7, height_tol=10, width_tol=10, cy_tol=5):
+    lights_matched = []
+    processed_indices = set()
+    lights_count = len(lights)
+    for i in range(lights_count):
+        if i in processed_indices:
+            continue
+        light1 = lights[i]
+        close_lights = [j for j in range(lights_count) if j != i and is_close(light1, lights[j], light_angle_tol, line_angle_tol, height_tol, width_tol, cy_tol)]
+        if close_lights:
+            group = [light1] + [lights[j] for j in close_lights]
+            lights_matched.append(group)
+            processed_indices.update([i] + close_lights)
+    armors = []
+    for light_matched in lights_matched:
+        if light_matched:
+            points = np.concatenate([cv2.boxPoints(light) for light in light_matched])
+            armor_raw = cv2.minAreaRect(points)
+            if 200 <= armor_raw[1][0] * armor_raw[1][1] <= 11000:
+            # if True:
+                armor_flit = adjust(armor_raw)
+                if 1 <= armor_flit[1][1] / armor_flit[1][0] <= 3.5:
+                    armors.append(adjust(armor_flit))
+    armors_center = []
+    for armor in armors:
+        center, (width, height), angle = armor
+        max_size = max(width, height)
+        box = cv2.boxPoints(((center[0], center[1]), (max_size, max_size), angle)).astype(int)
+        cv2.drawContours(img, [box], 0, (255, 0, 255), 2)
+        cv2.circle(img, (int(center[0]), int(center[1])), 5, (255, 0, 255), -1)
+        (center_x, center_y) = map(int, armor[0])
+        cv2.putText(img, f"({center_x}, {center_y})", (center_x, center_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (120, 255, 255), 1)  # 在图像上标记坐标
+        armor_center = (center_x, center_y)
+        armors_center.append(armor_center)
+        cv2.imshow("armor", img)
+    return armors_center
 
-#相关图形显示，用于展示动作
-d.drawCircle(60,115,15,color=BLACK,border=2,fillcolor=WHITE)
-d.drawCircle(60,175,15,color=BLACK,border=2,fillcolor=WHITE)
-d.drawCircle(30,145,15,color=BLACK,border=2,fillcolor=WHITE)
-d.drawCircle(90,145,15,color=BLACK,border=2,fillcolor=WHITE)
+def detector(img_raw):
+    resized_img, binary_img = process_img(img_raw)
+    drawn_img, rects = find_light(resized_img, binary_img)
+    armors_center = is_armor(drawn_img, rects)
+    return armors_center
 
-d.drawCircle(180,20,15,color=BLACK,border=2,fillcolor=WHITE)
-d.drawCircle(180,80,15,color=BLACK,border=2,fillcolor=WHITE)
-d.drawCircle(150,50,15,color=BLACK,border=2,fillcolor=WHITE)
-d.drawCircle(210,50,15,color=BLACK,border=2,fillcolor=WHITE)
-
-d.drawCircle(30,85,10,color=BLACK,border=2,fillcolor=WHITE)
-d.drawCircle(210,105,10,color=BLACK,border=2,fillcolor=WHITE)
-
-d.drawRect(90, 90, 25, 15, color=BLACK, border=2, fillcolor=WHITE)
-d.drawRect(125, 90, 25, 15, color=BLACK, border=2, fillcolor=WHITE)
-
-
-while True:
+if __name__ == "__main__" :
     
-    v = gamepad.read()
-    
-    print(v) #REPL打印
-
-    if ls_sw:
-        lx_raw  = 8191 - lx.read() - 3050
-        ly_raw  = 8191 - ly.read() - 3080
-        rx_raw  = 8191 - rx.read() - 3160
-        ry_raw  = 8191 - ry.read() - 3000
-
-        data = {
-            "lx": lx_raw, "ly": ly_raw, "ls": ls_sw,
-            "rx": rx_raw, "ry": ry_raw, "rs": rs_sw,
-        }
-    else:
-        data = {
-            "lx": 0, "ly": 0, "ls": ls_sw,
-            "rx": 0, "ry": 0, "rs": rs_sw,
-        }
-
-    data_json = json.dumps(data)  # 将数据转换为 JSON 字符串并发送
-    now.send(peer, data_json)  
-    print(f"发送数据: {data_json}")
-
-    blink_led()
-
-    diff = time_diff()
-    print(f"延迟us: {diff}, 频率Hz: {1_000_000 / diff}")
-        
-    #摇杆数据
-    d.printStr('L-X: '+str(v[1])+'  ',10,15,color=BLACK,size=2)
-    d.printStr('L-Y: '+str(v[2])+'  ',10,45,color=BLACK,size=2)
-    
-    d.printStr('R-X: '+str(v[3])+'  ',130,120,color=BLACK,size=2)
-    d.printStr('R-Y: '+str(v[4])+'  ',130,150,color=BLACK,size=2)
-    
-    #按键动作判断并显示
-    L = v[5]%16
-    if L == 0: #上
-        d.drawCircle(60,115,15,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(60,115,15,color=BLACK,border=2,fillcolor=WHITE)
-
-    if L == 4: #下
-        d.drawCircle(60,175,15,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(60,175,15,color=BLACK,border=2,fillcolor=WHITE)
-
-    if L == 6: #左
-        d.drawCircle(30,145,15,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(30,145,15,color=BLACK,border=2,fillcolor=WHITE)
-        
-    if L == 2: #右
-        d.drawCircle(90,145,15,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(90,145,15,color=BLACK,border=2,fillcolor=WHITE)
-    
-    
-    if v[5] & 1<<4: #Y
-        d.drawCircle(180,20,15,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(180,20,15,color=BLACK,border=2,fillcolor=WHITE)
-    
-    if v[5] & 1<<6: #A
-        d.drawCircle(180,80,15,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(180,80,15,color=BLACK,border=2,fillcolor=WHITE)
-        
-    if v[5] & 1<<7: #X
-        d.drawCircle(150,50,15,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(150,50,15,color=BLACK,border=2,fillcolor=WHITE)
-    
-    if v[5] & 1<<5: #B
-        d.drawCircle(210,50,15,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(210,50,15,color=BLACK,border=2,fillcolor=WHITE)
-    
-    if v[6] & 1<<4: #back
-        d.drawRect(90, 90, 25, 15, color=BLACK, border=2, fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawRect(90, 90, 25, 15, color=BLACK, border=2, fillcolor=WHITE)
-
-    if v[6] & 1<<5: #start
-        d.drawRect(125, 90, 25, 15, color=BLACK, border=2, fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawRect(125, 90, 25, 15, color=BLACK, border=2, fillcolor=WHITE)
-    
-    if v[6] & 1<<6: #右摇杆确认键
-        d.drawCircle(210,105,10,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(210,105,10,color=BLACK,border=2,fillcolor=WHITE)
-
-    if v[6] & 1<<7: #左摇杆确认键
-        d.drawCircle(30,85,10,color=BLACK,border=2,fillcolor=BLACK)
-        time.sleep_ms(200)
-        d.drawCircle(30,85,10,color=BLACK,border=2,fillcolor=WHITE)
-    
-        
-    time.sleep_ms(10) #20ms检测一次
+    img_raw = cv2.imread("D:\IT\esp_gamepad\\test\image.png")
+    armors_center = detector(img_raw)
+    print(armors_center)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()

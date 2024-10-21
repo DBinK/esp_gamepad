@@ -146,55 +146,59 @@ class Gamepad:
 
     @debounce(50_000_000)
     def a_callback(self, KEY):
-
-        self.data[6] = self.set_bit(self.data[6], 7, KEY.value())
-
+        self.data[5] = self.set_bit(self.data[5], 6, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
     @debounce(50_000_000)
     def b_callback(self, KEY):
-
-        self.data[6] = self.set_bit(self.data[6], 6, KEY.value())
-
+        self.data[5] = self.set_bit(self.data[5], 5, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
     @debounce(50_000_000)
     def x_callback(self, KEY):
+        self.data[5] = self.set_bit(self.data[5], 7, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
     @debounce(50_000_000)
     def y_callback(self, KEY):
+        self.data[5] = self.set_bit(self.data[5], 4, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
     @debounce(50_000_000)
     def l1_callback(self, KEY):
+        self.data[6] = self.set_bit(self.data[6], 7, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
     @debounce(50_000_000)
     def r1_callback(self, KEY):
+        self.data[6] = self.set_bit(self.data[6], 6, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
     @debounce(50_000_000)
     def start_callback(self, KEY):
+        self.data[6] = self.set_bit(self.data[6], 5, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
 
     @debounce(50_000_000)
     def select_callback(self, KEY):
+        self.data[6] = self.set_bit(self.data[6], 4, KEY.value())
         if self.debug:
             print(f"key {KEY} pressed")
     
     def read(self) -> list:
-
+        # 更新摇杆数据
         self.data[1], self.data[2] = self.ls.read()
         self.data[3], self.data[4] = self.rs.read()
 
+        if self.a.read() and self.b.read() and self.x.read() and self.y.read():
+            self.data[5] = 8
 
         return self.data
 
@@ -202,7 +206,6 @@ class Gamepad:
         print("Gamepad running...")
         while True:
             time.sleep(0.1)
-            
             print(f"ls: {self.ls.read()}, rs: {self.rs.read()}")
             print(f"ls: {self.ls.read_raw()}, rs: {self.rs.read_raw()}")
 
@@ -211,6 +214,6 @@ if __name__ == "__main__":
     gamepad = Gamepad()
     while True: 
         data = gamepad.read()
-        print(data, bin(data[6]))
+        print(f"raw: {data}, xaby: {bin(data[5])}, other: {bin(data[6])}, dpad: []" )
         time.sleep(0.1)
     

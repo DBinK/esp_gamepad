@@ -7,6 +7,7 @@ from machine import Pin, ADC, Timer
 
 # 本地库
 import gamepad
+import lcd
 
 time.sleep(1)  # 防止点停止按钮后马上再启动导致 Thonny 连接不上
 
@@ -74,9 +75,14 @@ def data_to_json(data):
 def main(tim_callback):
 
     data = gamepad.read()
+    lcd.show_gamepad(data)  # 在lcd显示数据
 
-    data_json = data_to_json(data)  # 将数据转换为 JSON 字符串并发送
+    # data_json = data_to_json(data)  # 将数据转换为 JSON 字符串并发送
+
+    data_json = json.dumps(data)  # 将列表直接转换为 JSON 字符串
+
     now.send(peer, data_json)
+
     print(f"发送数据: {data_json}")
 
     diff = time_diff()

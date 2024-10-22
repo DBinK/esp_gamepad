@@ -21,7 +21,7 @@ Draws lines and rectangles in random colors at random locations on the display.
 
 import random
 import tft_config
-import st7789 as st7789
+import st7789py as st7789py
 
 
 def main():
@@ -29,7 +29,7 @@ def main():
     tft = tft_config.config(tft_config.WIDE)
 
     while True:
-        color = st7789.color565(
+        color = st7789py.color565(
             random.getrandbits(8), random.getrandbits(8), random.getrandbits(8)
         )
 
@@ -50,7 +50,7 @@ def main():
             row,
             width,
             height,
-            st7789.color565(
+            st7789py.color565(
                 random.getrandbits(8), random.getrandbits(8), random.getrandbits(8)
             ),
         )

@@ -1,59 +1,43 @@
-"""
-boxlines.py
-===========
-
-.. figure:: ../_static/boxlines.jpg
-    :align: center
-
-    Test for lines and rectangles.
-
-Draws lines and rectangles in random colors at random locations on the display.
-
-.. note:: This example requires the following modules:
-
-  .. hlist::
-    :columns: 3
-
-    - `st7789py`
-    - `tft_config`
-
-"""
-
 import random
+import st7789py as st7789
 import tft_config
-import st7789 as st7789
+import vga1_8x16 as font
+# import vga2_bold_16x32 as font
 
 
-def main():
-    """ main """
-    tft = tft_config.config(tft_config.WIDE)
+tft = tft_config.config(tft_config.WIDE)
 
-    while True:
-        color = st7789.color565(
-            random.getrandbits(8), random.getrandbits(8), random.getrandbits(8)
-        )
+tft.rotation(0)
+tft.fill(0)
 
-        tft.line(
-            random.randint(0, tft.width),
-            random.randint(0, tft.height),
-            random.randint(0, tft.width),
-            random.randint(0, tft.height),
-            color,
-        )
+tft.text(
+    font,
+    f"Hello gamepad!",
+    10, 10
+)
 
-        width = random.randint(0, tft.width // 2)
-        height = random.randint(0, tft.height // 2)
-        col = random.randint(0, tft.width - width)
-        row = random.randint(0, tft.height - height)
-        tft.fill_rect(
-            col,
-            row,
-            width,
-            height,
-            st7789.color565(
-                random.getrandbits(8), random.getrandbits(8), random.getrandbits(8)
-            ),
-        )
+def show_gamepad(data):
+    tft.text(
+        font,
+        f"ls: {data} ",
+        10, 10
+    )
+    tft.text(
+        font,
+        f"xaby: {bin((data[5] & 0b11110000) >> 4)}",
+        10, 40
+    )
+    tft.text(
+        font,
+        f"other: {bin(data[6])}",
+        10, 70
+    )
+    tft.text(
+        font,
+        f"dpad: {bin(data[5] & 0b00001111)}",
+        10, 100
+    )
 
-
-main()
+if __name__ == "__main__":
+    data = [1, 111,222, 112,221, 8,0, 6]
+    show_gamepad(data)

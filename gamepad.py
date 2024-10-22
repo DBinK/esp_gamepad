@@ -215,14 +215,12 @@ class Gamepad:
 
 if __name__ == "__main__":
 
-    last_data = None
     gamepad = Gamepad()
 
     while True: 
         data = gamepad.read()
 
-        if data != last_data:
-            print(f"raw: {data}, xaby: {bin((data[5] & 0b11110000) >> 4)}, other: {bin(data[6])}, dpad: {bin(data[5] & 0b00001111)}" )
+        print(f"raw: {data}, xaby: {bin((data[5] & 0b11110000) >> 4)}, other: {bin(data[6])}, dpad: {bin(data[5] & 0b00001111)}" )
 
         time.sleep(0.1)
     

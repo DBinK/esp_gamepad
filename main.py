@@ -6,8 +6,7 @@ import espnow
 from machine import Pin, ADC, Timer
 
 # 本地库
-import controller
-import lcd
+import gamepad
 
 time.sleep(1)  # 防止点停止按钮后马上再启动导致 Thonny 连接不上
 
@@ -23,8 +22,25 @@ peer = b"\xff\xff\xff\xff\xff\xff"  # 使用广播地址
 now.add_peer(peer)
 
 # 构建手柄对象
-gamepad = controller.CONTROLLER()
+gamepad = gamepad.Gamepad()
 
+def debounce(delay_ns):
+    """装饰器: 防止函数在指定时间内被重复调用"""
+    def decorator(func):
+        last_call_time = 0
+        result = None
+
+        def wrapper(*args, **kwargs):
+            nonlocal last_call_time, result
+            current_time = time.time_ns()
+            if current_time - last_call_time > delay_ns:
+                last_call_time = current_time
+                result = func(*args, **kwargs)
+            return result
+
+        return wrapper
+
+    return decorator
 
 def time_diff(last_time=[None]):
     """计算两次调用之间的时间差，单位为微秒。"""
@@ -70,7 +86,6 @@ def main(tim_callback):
 # 开启定时器
 tim = Timer(1)
 
-
 @debounce(100_000_000)
 def stop_btn_callback(pin):
     if pin.value() == 0:
@@ -81,4 +96,4 @@ def stop_btn_callback(pin):
 stop_btn = Pin(0, Pin.IN, Pin.PULL_UP)
 stop_btn.irq(stop_btn_callback, Pin.IRQ_FALLING)
 
-tim.init(period=10, mode=Timer.PERIODIC, callback=main)
+tim.init(period=100, mode=Timer.PERIODIC, callback=main)
